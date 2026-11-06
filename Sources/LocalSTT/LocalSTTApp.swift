@@ -158,54 +158,64 @@ struct InstrumentView: View {
     private var cyan: Color { model.preferences.waveColor(for: model.activeLanguage).color }
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9).fill(LinearGradient(colors: [Color(white: 0.36), Color(white: 0.15), Color(white: 0.22)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.22), lineWidth: 0.6).padding(0.7)
-            RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.11)).padding(3)
-            RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.035, green: 0.065, blue: 0.072)).overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.7), lineWidth: 1)).padding(.horizontal, 13).padding(.vertical, 8)
-            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || (model.phase == .idle && !model.previewingWave))) { context in
-                Canvas { ctx, size in
-                    let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
-                    let rect = CGRect(x: 18, y: 11, width: 104, height: 22)
-                    var grid = Path()
-                    for x in stride(from: rect.minX, through: rect.maxX, by: 13) {
-                        grid.move(to: CGPoint(x: x, y: rect.minY)); grid.addLine(to: CGPoint(x: x, y: rect.maxY))
-                    }
-                    for y in [16.5, 22.0, 27.5] {
-                        grid.move(to: CGPoint(x: 18, y: y)); grid.addLine(to: CGPoint(x: 122, y: y))
-                    }
-                    ctx.stroke(grid, with: .color(cyan.opacity(0.09)), lineWidth: 0.5)
-                    if model.phase == .idle && !model.previewingWave {
-                        ctx.fill(Path(ellipseIn: CGRect(x: 68.5, y: 20.5, width: 3, height: 3)), with: .color(cyan))
-                    } else if model.phase == .recording || model.previewingWave {
-                        var wave = Path()
-                        for i in 0...104 {
-                            let u = Double(i) / 104
-                            let amplitude = reduceMotion ? 0 : (0.5 + (model.previewingWave ? 0.65 : model.level) * 8)
-                            let y = 22 + sin(u * .pi) * amplitude * (0.75 * sin(u * .pi * 6 - t * 8) + 0.25 * sin(u * .pi * 12 + t * 5))
-                            let point = CGPoint(x: 18 + Double(i), y: y)
-                            if i == 0 { wave.move(to: point) } else { wave.addLine(to: point) }
-                        }
-                        ctx.stroke(wave, with: .color(cyan.opacity(0.16)), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
-                        ctx.stroke(wave, with: .color(cyan), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-                    } else {
-                        var line = Path(); line.move(to: CGPoint(x: 18, y: 22)); line.addLine(to: CGPoint(x: 122, y: 22))
-                        ctx.stroke(line, with: .color(cyan.opacity(0.25)), lineWidth: 1)
-                        let x = reduceMotion ? 62 : 18 + t.truncatingRemainder(dividingBy: 1.2) / 1.2 * 88
-                        var light = Path(); light.move(to: CGPoint(x: x, y: 22)); light.addLine(to: CGPoint(x: x + 16, y: 22))
-                        ctx.stroke(light, with: .color(cyan), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                    }
-                    for x in [7.0, 133.0] {
-                        for y in [9.0, 35.0] {
-                            ctx.fill(Path(ellipseIn: CGRect(x: x - 1.6, y: y - 1.6, width: 3.2, height: 3.2)), with: .color(.black.opacity(0.8)))
-                            var slot = Path(); slot.move(to: CGPoint(x: x - 0.8, y: y + 0.5)); slot.addLine(to: CGPoint(x: x + 0.8, y: y - 0.5))
-                            ctx.stroke(slot, with: .color(.white.opacity(0.32)), lineWidth: 0.6)
-                        }
-                    }
-                }
+            chassis
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || (model.phase == .idle && !model.previewingWave))) { timeline in
+                Canvas { context, _ in draw(context, at: timeline.date) }
             }
         }
         .frame(width: 140, height: 44)
         .accessibilityLabel(model.previewingWave ? "Wave preview" : model.phase == .recording ? "Listening" : model.phase == .idle ? "Done" : "Processing dictation")
+    }
+
+    private var chassis: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9).fill(LinearGradient(colors: [Color(white: 0.36), Color(white: 0.15), Color(white: 0.22)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.22), lineWidth: 0.6).padding(0.7)
+            RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.11)).padding(3)
+            RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.035, green: 0.065, blue: 0.072)).overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.7), lineWidth: 1)).padding(.horizontal, 13).padding(.vertical, 8)
+        }
+    }
+
+    private func draw(_ ctx: GraphicsContext, at date: Date) {
+        let t = reduceMotion ? 0 : date.timeIntervalSinceReferenceDate
+        let rect = CGRect(x: 18, y: 11, width: 104, height: 22)
+        var grid = Path()
+        for x in stride(from: rect.minX, through: rect.maxX, by: 13) {
+            grid.move(to: CGPoint(x: x, y: rect.minY)); grid.addLine(to: CGPoint(x: x, y: rect.maxY))
+        }
+        for y in [16.5, 22.0, 27.5] {
+            grid.move(to: CGPoint(x: 18, y: y)); grid.addLine(to: CGPoint(x: 122, y: y))
+        }
+        ctx.stroke(grid, with: .color(cyan.opacity(0.09)), lineWidth: 0.5)
+        if model.phase == .idle && !model.previewingWave {
+            ctx.fill(Path(ellipseIn: CGRect(x: 68.5, y: 20.5, width: 3, height: 3)), with: .color(cyan))
+        } else if model.phase == .recording || model.previewingWave {
+            var wave = Path()
+            for i in 0...104 {
+                let u = Double(i) / 104
+                let amplitude = reduceMotion ? 0 : (0.5 + (model.previewingWave ? 0.65 : model.level) * 8)
+                let fundamental = 0.75 * sin(u * Double.pi * 6 - t * 8)
+                let harmonic = 0.25 * sin(u * Double.pi * 12 + t * 5)
+                let y = 22 + sin(u * Double.pi) * amplitude * (fundamental + harmonic)
+                let point = CGPoint(x: 18 + Double(i), y: y)
+                if i == 0 { wave.move(to: point) } else { wave.addLine(to: point) }
+            }
+            ctx.stroke(wave, with: .color(cyan.opacity(0.16)), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+            ctx.stroke(wave, with: .color(cyan), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
+        } else {
+            var line = Path(); line.move(to: CGPoint(x: 18, y: 22)); line.addLine(to: CGPoint(x: 122, y: 22))
+            ctx.stroke(line, with: .color(cyan.opacity(0.25)), lineWidth: 1)
+            let x = reduceMotion ? 62 : 18 + t.truncatingRemainder(dividingBy: 1.2) / 1.2 * 88
+            var light = Path(); light.move(to: CGPoint(x: x, y: 22)); light.addLine(to: CGPoint(x: x + 16, y: 22))
+            ctx.stroke(light, with: .color(cyan), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+        }
+        for x in [7.0, 133.0] {
+            for y in [9.0, 35.0] {
+                ctx.fill(Path(ellipseIn: CGRect(x: x - 1.6, y: y - 1.6, width: 3.2, height: 3.2)), with: .color(.black.opacity(0.8)))
+                var slot = Path(); slot.move(to: CGPoint(x: x - 0.8, y: y + 0.5)); slot.addLine(to: CGPoint(x: x + 0.8, y: y - 0.5))
+                ctx.stroke(slot, with: .color(.white.opacity(0.32)), lineWidth: 0.6)
+            }
+        }
     }
 }
 

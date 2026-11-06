@@ -1,0 +1,32 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check publication hygiene
+        run: |
+          python3 -m unittest discover -s scripts/tests
+          python3 scripts/check-public.py
+      - name: Check generated project
+        run: |
+          python3 scripts/create-project.py
+          git diff --exit-code -- LocalSTT.xcodeproj/project.pbxproj
+      - name: Run unit tests
+        run: swift test
+      - name: Build app without signing
+        run: >-
+          xcodebuild -project LocalSTT.xcodeproj -scheme LocalSTT
+          -configuration Release -derivedDataPath .build/xcode-ci
+          CODE_SIGNING_ALLOWED=NO REGISTER_APP_WITH_LAUNCH_SERVICES=NO build
